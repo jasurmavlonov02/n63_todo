@@ -1,5 +1,5 @@
 from sessions import Session
-from models import User,UserRole
+from models import User,UserRole,TodoType
 from utils import Response,match_password,hash_password
 from database import cursor,commit
 from validations import check_validations
@@ -8,6 +8,33 @@ from forms import UserForm
 
 
 session = Session()
+
+# =========================== Decorator ========================
+
+def login_required(func):
+    def wrapper(*args,**kwargs):
+        if not session.session:
+            return Response('You must login firstly',status_code=401)
+        result = func(*args,**kwargs)
+        return result
+    return wrapper
+
+
+
+def is_admin(func):
+    def wrapper(*args,**kwargs):
+        if session.session:
+            if session.session.role != 'admin':
+                return Response('You dont have any permisson for admin role',status_code=401)
+        result = func(*args,**kwargs)
+        return result
+    
+    return wrapper
+                
+
+# =============================================================
+
+
 
 @commit
 def login(username:str,password:str):
@@ -67,7 +94,7 @@ def logout():
     if session.session:
         # session.session = None
         session.remove_session()
-        return Response('You Successfully Logged Out')
+        return Response('You Successfully Logged Out✅✅')
     
     return Response('You must login firstly')
 
@@ -78,3 +105,16 @@ def todo_list():
     todos = cursor.fetchall()
     for todo in todos:
         print(todo)
+        
+        
+
+@login_required
+@is_admin
+@commit
+def todo_add(title,user_id):
+    insert_todo_query = '''insert into todo(title,description,todo_type,user_id) values (%s,%s,%s,%s);'''
+    todo_data = (title,None,TodoType.PERSONAL.value,user_id)
+    cursor.execute(insert_todo_query,todo_data)
+    return Response('Todo Succesfully created ✅✅')
+    
+    
